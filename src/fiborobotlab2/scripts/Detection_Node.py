@@ -38,14 +38,8 @@ class Detection_Node(Node):
   def __init__(self):
     super().__init__('Detection_Node')
     self.publisher_ = self.create_publisher(BBox, 'Ball_position', 10)     # CHANGE
-    self.cli = self.create_client(GetPosition, 'get_position')
-    self.req = GetPosition.Request()
 
-    self.send_request()
 
-  def send_request(self):
-        self.req.id = 1
-        self.future = self.cli.call_async(self.req)
   def load_labels(self,path, encoding='utf-8'): #Returns: Dictionary mapping indices to labels.
     with open(path, 'r', encoding=encoding) as f:
       lines = f.readlines()
@@ -144,7 +138,6 @@ def main(args=None):
     robot_state=[0, [0, 0, False, None, 0, 0], [None, None, False], [None, None], [None, 3]]
     Detection = Detection_Node()
     #rclpy.spin(Detection)
-    Detection.send_request()
     while rclpy.ok():
         Detection.ball_detection(robot_state)
         rclpy.spin_once(Detection)

@@ -48,6 +48,7 @@ install(PROGRAMS
   scripts/detect.py
   scripts/test/Client_position.py
   scripts/PID_Node.py
+  scripts/pid_control.py
   DESTINATION lib/${PROJECT_NAME}
   )
   
