@@ -23,9 +23,10 @@ import rclpy
 from rclpy.node import Node
 from dynamixel_sdk_custom_interfaces.msg import   SetPosition
 from dynamixel_sdk_custom_interfaces.srv import GetPosition
-from fiborobotlab2.msg import BBox
-
-
+from fiborobotlab2.msg import Rstate
+scan_path_001 = [[0, 10], [-90, 10], 3] ##[start[pan,tilt], final[pan,tilt], step_amount]
+scan_path_002 = [[-90, 45], [90, 45], 6] ##[start[pan,tilt], final[pan,tilt], step_amount]
+scan_path_003 = [[90, 10], [0, 10], 3] ##[start[pan,tilt], final[pan,tilt], step_amount]
 #width, height = 1920, 1080
 width, height = 1280, 720
 WINDOW_NAME = "Preview"
@@ -37,9 +38,20 @@ COUNT = 1 # Number of times to run inference
 class Detection_Node(Node):
   def __init__(self):
     super().__init__('Detection_Node')
-    self.publisher_ = self.create_publisher(BBox, 'Ball_position', 10)     # CHANGE
-
-
+    self.publisher_ = self.create_publisher(Rstate, 'Ball_position', 10)     # CHANGE
+    self.publisher_2 = self.create_publisher(Rstate, 'Robot_state', 10)     # CHANGE
+    self.publisher_3 = self.create_publisher(Rstate, 'Follow_ball_state', 10)     # CHANGE
+    timer_period = 0.1
+    #self.timer = self.create_timer(timer_period, self.timer_callback)
+    self.count_scanball=0
+    self.count_follow_ball=0
+    self.confirmed_time=True
+    self.state=None
+  # def timer_callback(self):
+  #     msg2=Rstate()
+  #     msg2.robot_state=self.state
+  #     self.publisher_2.publish(msg2)
+  #     self.get_logger().info('Publishing: "%s"' % msg2.robot_state)
   def load_labels(self,path, encoding='utf-8'): #Returns: Dictionary mapping indices to labels.
     with open(path, 'r', encoding=encoding) as f:
       lines = f.readlines()
@@ -65,12 +77,17 @@ class Detection_Node(Node):
       draw.rectangle([(bbox.xmin, bbox.ymin), (bbox.xmax, bbox.ymax)],
                     outline='red')
       draw.text((bbox.xmin + 10, bbox.ymin + 10), '%s\n%.2f' % (labels.get(obj.id, obj.id), obj.score), fill='red')
+  def time_check(self):
+      prev=time.time()
+      while (time.time()-prev < 3):
+        pass
+      self.confirmed_time=True
 
   def ball_detection(self,robot_state):
     labels = self.load_labels(LABEL)
     interpreter = self.make_interpreter(MODEL)
     interpreter.allocate_tensors()
-    cap = v4l2capture.Video_device("/dev/video0")
+    cap = v4l2capture.Video_device("/dev/video2")
     size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 
     subprocess.call(["v4l2-ctl", "-c", "focus_auto=0"]) ##trun off auto focus##
@@ -80,7 +97,9 @@ class Detection_Node(Node):
     cap.create_buffers(1)
     cap.queue_all_buffers()
     cap.start()
-    msg = BBox()                                           # CHANGE
+    msg = Rstate()  
+    start_time=time.time()                                         # CHANGE
+    time_confirmed_detect=time.time()
     while True:
       
       select.select((cap,), (), ())
@@ -106,22 +125,41 @@ class Detection_Node(Node):
       if not objs:
           robot_state[2][0] = None
           robot_state[2][1] = None
+          if time.time() - start_time >3:
+            self.state="scanball"
+            msg.center_x=int(-1)
+            msg.center_y=int(-1)
+            msg.robot_state="scanball"
+            self.publisher_.publish(msg)
+            self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
+            start_time=time.time()
+            self.count_scanball+=1
+          time_confirmed_detect=time.time()
+          msg.follow_ball_status="OFF"
+          self.publisher_3.publish(msg)
+          #print(self.state)
         #print('No objects detected')
       for obj in objs:
           if obj.id == 0 and obj.score > 0.5:
               center_x = (obj.bbox.xmax + obj.bbox.xmin)/2
               center_y = (obj.bbox.ymax + obj.bbox.ymin)/2
-              robot_state[2][0] = center_x
-              robot_state[2][1] = center_y
-
               msg.center_x=int(center_x)
-              msg.center_y=int(center_y)                      # CHANGE
+              msg.center_y=int(center_y)
+              if time.time() - time_confirmed_detect >4:
+                msg.follow_ball_status="Working"
+                self.publisher_3.publish(msg)
+                time_confirmed_detect=time.time()
+
+              msg.robot_state="followBall"
+                    # CHANGE
               self.publisher_.publish(msg)
               self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
               # print(labels.get(obj.id, obj.id))
               #print('  id:    ', obj.id)
               #print('  score: ', obj.score)
               #print('  bbox:  ', obj.bbox)
+              start_time=time.time()
+              self.count_scanball=0
       cv2.imshow(WINDOW_NAME, img)
       cv2.imshow(WINDOW_NAME, cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR))
       key = cv2.waitKey(1)
