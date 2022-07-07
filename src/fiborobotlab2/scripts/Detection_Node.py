@@ -1,4 +1,4 @@
-#!/home/pannatorn/anaconda3/bin/python
+#!/usr/bin/env /usr/bin/python3
 import sys
 import signal
 import argparse
@@ -31,16 +31,16 @@ scan_path_003 = [[90, 10], [0, 10], 3] ##[start[pan,tilt], final[pan,tilt], step
 width, height = 1280, 720
 WINDOW_NAME = "Preview"
 full_screen = False
-MODEL = '/home/pannatorn/dev_ws/src/fiborobotlab2/models/output_tflite_graph_edgetpu.tflite'
-LABEL = '/home/pannatorn/dev_ws/src/fiborobotlab2/models/label.txt'
+MODEL = '/home/fiborobotlab/dev_ws/src/fiborobotlab2/models/output_tflite_graph_edgetpu.tflite'
+LABEL = '/home/fiborobotlab/dev_ws/src/fiborobotlab2/models/label.txt'
 THRESHOLD = 0.4
 COUNT = 1 # Number of times to run inference
 class Detection_Node(Node):
   def __init__(self):
-    super().__init__('Detection_Node')
-    self.publisher_ = self.create_publisher(Rstate, 'Ball_position', 10)     # CHANGE
-    self.publisher_2 = self.create_publisher(Rstate, 'Robot_state', 10)     # CHANGE
-    self.publisher_3 = self.create_publisher(Rstate, 'Follow_ball_state', 10)     # CHANGE
+    super().__init__('Detection_Node_robot1')
+    self.publisher_ = self.create_publisher(Rstate, 'Ball_position_robot1', 10)     # CHANGE
+    self.publisher_2 = self.create_publisher(Rstate, 'Robot_state_robot1', 10)     # CHANGE
+    self.publisher_3 = self.create_publisher(Rstate, 'Follow_ball_state_robot1', 10)     # CHANGE
     timer_period = 0.1
     #self.timer = self.create_timer(timer_period, self.timer_callback)
     self.count_scanball=0
@@ -87,7 +87,7 @@ class Detection_Node(Node):
     labels = self.load_labels(LABEL)
     interpreter = self.make_interpreter(MODEL)
     interpreter.allocate_tensors()
-    cap = v4l2capture.Video_device("/dev/video2")
+    cap = v4l2capture.Video_device("/dev/video0")
     size_x, size_y = cap.set_format(width, height, fourcc='MJPG')
 
     subprocess.call(["v4l2-ctl", "-c", "focus_auto=0"]) ##trun off auto focus##
@@ -131,7 +131,7 @@ class Detection_Node(Node):
             msg.center_y=int(-1)
             msg.robot_state="scanball"
             self.publisher_.publish(msg)
-            self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
+            #self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
             start_time=time.time()
             self.count_scanball+=1
           time_confirmed_detect=time.time()
@@ -140,9 +140,10 @@ class Detection_Node(Node):
           #print(self.state)
         #print('No objects detected')
       for obj in objs:
-          if obj.id == 0 and obj.score > 0.5:
-              center_x = (obj.bbox.xmax + obj.bbox.xmin)/2
-              center_y = (obj.bbox.ymax + obj.bbox.ymin)/2
+          if obj.id == 1 and obj.score > 0.4:
+              center_x = (objs[0].bbox.xmax + objs[0].bbox.xmin)/2
+              center_y = (objs[0].bbox.ymax + objs[0].bbox.ymin)/2
+              print(center_x)
               msg.center_x=int(center_x)
               msg.center_y=int(center_y)
               if time.time() - time_confirmed_detect >4:
@@ -153,7 +154,7 @@ class Detection_Node(Node):
               msg.robot_state="followBall"
                     # CHANGE
               self.publisher_.publish(msg)
-              self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
+              #self.get_logger().info('Publishing center x: %d center y: %d ' % (msg.center_x,msg.center_y))
               # print(labels.get(obj.id, obj.id))
               #print('  id:    ', obj.id)
               #print('  score: ', obj.score)
@@ -164,11 +165,11 @@ class Detection_Node(Node):
       cv2.imshow(WINDOW_NAME, cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR))
       key = cv2.waitKey(1)
       if key == ord('q'):
-        break
+         break
       elif key == ord('f'):
-        full_screen = not full_screen
-        if full_screen: cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        else: cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
+         full_screen = not full_screen
+         if full_screen: cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+         else: cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_NORMAL)
     cv2.destroyAllWindows()
 
 def main(args=None):

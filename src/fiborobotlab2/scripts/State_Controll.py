@@ -1,4 +1,4 @@
-#!/home/pannatorn/anaconda3/bin/python
+#!/usr/bin/env  /usr/bin/python3
 import rclpy
 from rclpy.node import Node
 from dynamixel_sdk_custom_interfaces.msg import   SetPosition
@@ -7,16 +7,27 @@ from fiborobotlab2.msg import Rstate
 import serial
 import time
 import copy
-
+import os
+from ament_index_python.packages import get_package_share_directory
 import threading
+
+import simplejson
+config_robot = simplejson.load(open(os.path.join(get_package_share_directory('fiborobotlab2'), 'config', 'robotname.json')))
+robotname=config_robot["robotname"]
+SetPosition_topic='set_position_{}'.format(robotname)
+action_state_topic='action_state_{}'.format(robotname)
+stainding_tipic='standing_status_{}'.format(robotname)
 class State_Controll(Node):
     def __init__(self):
-        super().__init__('State_Controll')
-        self.subscription = self.create_subscription(Rstate,'action_state',self.set_locomotion,10)
-        self.publisher_ = self.create_publisher(SetPosition, 'set_position', 10)     # CHANGE
+        super().__init__('State_Controll_{}'.format(robotname))
+        self.subscription = self.create_subscription(Rstate,action_state_topic,self.set_locomotion,10)
+        self.publisher_ = self.create_publisher(Rstate, stainding_tipic, 10)     # CHANGE
         self.str_comport = '/dev/ttyACM0'
         self.baudrate = 115200
         self.robot_state = None
+        self.Standing_status=None
+        timer_period = 1 # seconds
+        self.timer = self.create_timer(timer_period, self.read_standing_status)
         print("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
         print("Initial Locomotion : comport = " + self.str_comport + " , baudrate = " + str(self.baudrate))
         try:
@@ -30,8 +41,15 @@ class State_Controll(Node):
         locomotion_command=msg.action_state
         if(locomotion_command == "stop"):
             self.stop_walk()
-        elif(locomotion_command == "forward"):
-            self.forward_walk()
+        elif(locomotion_command == "forward_berserk"):
+            self.forward_walk_berserk()
+        elif(locomotion_command == "forward_range"):
+            self.forward_walk_range()
+        elif(locomotion_command == "forward_almost_normal"):
+            self.forward_walk_than_normal()
+        elif(locomotion_command == "forward_normal"):
+            self.forward_walk_normal()
+        ####################################
         elif(locomotion_command == "turn_left"):
             self.turn_left()
         elif(locomotion_command == "turn_right"):
@@ -78,9 +96,13 @@ class State_Controll(Node):
             # else:
             #     print("robot falling " + str(responsePacket[5]))
             ##### return to server #####
-            self.robot_state[0] = responsePacket[5]
+            self.Standing_status = responsePacket[5]
+            print(self.Standing_status)
+            msg_standing=Rstate()
+            msg_standing.standing_status=self.Standing_status
+            self.publisher_.publish(msg_standing)
         else:
-            self.robot_state[0] = None
+            self.Standing_status = None
     def sit(self):
         package = [255,255,1,4,3,2,51,194]
         self.serialDevice.write(package)
@@ -109,8 +131,8 @@ class State_Controll(Node):
         package = [255,255,1,4,3,2,102,143]
         self.serialDevice.write(package)
 
-    def forward_walk(self, step_flag = False):
-        package = [255,255,1,6,3,5,157,127,127,85]
+    def forward_walk_berserk(self, step_flag = False):
+        package = [255,255,1,6,3,5,183,127,127,59]
         self.serialDevice.write(package)
         time.sleep(0.1)
         if step_flag == True:
@@ -119,6 +141,42 @@ class State_Controll(Node):
             package = [255,255,1,4,3,2,111,134]
         self.serialDevice.write(package)
 
+    def forward_walk_range(self, step_flag = False):
+        package = [255,255,1,6,3,5,173,127,127,69]
+        self.serialDevice.write(package)
+        time.sleep(0.1)
+        if step_flag == True:
+            package = [255,255,1,4,3,2,112,133]
+        else:
+            package = [255,255,1,4,3,2,111,134]
+        self.serialDevice.write(package)
+    def forward_walk_than_normal(self, step_flag = False):
+        package = [255,255,1,6,3,5,163,127,127,79]
+        self.serialDevice.write(package)
+        time.sleep(0.1)
+        if step_flag == True:
+            package = [255,255,1,4,3,2,112,133]
+        else:
+            package = [255,255,1,4,3,2,111,134]
+        self.serialDevice.write(package)
+    def forward_walk_normal(self, step_flag = False):
+        package = [255,255,1,6,3,5,157,127,127,85]
+        self.serialDevice.write(package)
+        time.sleep(0.1)
+        if step_flag == True:
+            package = [255,255,1,4,3,2,112,133]
+        else:
+            package = [255,255,1,4,3,2,111,134]
+        self.serialDevice.write(package)
+    def forward_walk_soft(self, step_flag = False):
+        package = [255,255,1,6,3,5,173,127,127,69]
+        self.serialDevice.write(package)
+        time.sleep(0.1)
+        if step_flag == True:
+            package = [255,255,1,4,3,2,112,133]
+        else:
+            package = [255,255,1,4,3,2,111,134]
+        self.serialDevice.write(package)
     def left_walk(self, step_flag = False):
         package = [255,255,1,6,3,5,127,157,127,85]
         self.serialDevice.write(package)
@@ -130,7 +188,7 @@ class State_Controll(Node):
         self.serialDevice.write(package)
     
     def left_curve_walk(self, step_flag = False):
-        package = [255,255,1,6,3,5,117,167,102,110]
+        package = [255,255,1,6,3,5,127,157,112,100]
         self.serialDevice.write(package)
         time.sleep(0.1)
         if step_flag == True:
@@ -160,7 +218,7 @@ class State_Controll(Node):
         self.serialDevice.write(package)
 
     def right_curve_walk(self, step_flag = False):
-        package = [255,255,1,6,3,5,137,92,147,120]
+        package = [255,255,1,6,3,5,127,92,142,135]
         self.serialDevice.write(package)
         time.sleep(0.1)
         if step_flag == True:

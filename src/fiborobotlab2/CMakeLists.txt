@@ -49,10 +49,17 @@ install(PROGRAMS
   scripts/detect.py
   scripts/test/Client_position.py
   scripts/PID_Node.py
+  scripts/PID_node2.py
   scripts/pid_control.py
   scripts/State_Controll.py
   scripts/confirmed_node.py
   scripts/Follow_ball.py
+  scripts/camera.py
+  scripts/detection_node.py
+  scripts/Kick.py
+  scripts/prepare_kick.py
+  scripts/Detection_NodeV3.py
+  scripts/localization_initial.py
   DESTINATION lib/${PROJECT_NAME}
   )
   

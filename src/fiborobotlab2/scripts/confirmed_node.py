@@ -10,25 +10,19 @@ import time
 import copy
 class confirmed_node(Node):
     def __init__(self):
-        super().__init__('State_Controll')
-        self.subscription = self.create_subscription(Rstate,'prepare',self.State_manager,10)
-        self.publisher_2 = self.create_publisher(Rstate, 'Robot_state', 10)     # CHANGE
-        self.prev=None
-        self.state=None
-    def State_manager(self,msg):
-        msg2=Rstate()
-        self.prev =msg.robot_state
-        if self.state == "scanball":
-            self.get_logger().info('robot_state %s ' % (msg.robot_state))
-            prev=time.time()
-            while(time.time()-prev<5):
-                self.state =msg.robot_state
-        if self.prev == self.state:
-            msg2.robot_state=self.state
-            self.get_logger().info('robotstate %s ' % (msg2.robot_state))
-            self.publisher_2.publish(msg2)
-
- 
+        super().__init__('Detection_state')
+        self.publisher_ = self.create_publisher(Rstate, 'detection_state', 10)
+        self.subscription = self.create_subscription(Rstate,'detection_check',self.detection_state_sub)
+        timer_period = 1/30  # seconds
+        self.timer = self.create_timer(timer_period, self.timer_callback)
+        self.detection_state="Detect_ball"
+    def detection_state_sub(self,msg):
+        self.detection_state=msg.detection_state
+    def timer_callback(self):
+        msg = Rstate()
+        msg.detection_state = self.detection_state
+        self.publisher_.publish(msg)
+        self.get_logger().info('Publishing: "%s"' % msg.detection_state)
 def main(args=None):
     rclpy.init(args=args)
     conf = confirmed_node()

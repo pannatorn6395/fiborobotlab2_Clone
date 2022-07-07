@@ -60,7 +60,7 @@ uint32_t goal_position = 0;
 int dxl_comm_result = COMM_TX_FAIL;
 
 ReadWriteNode::ReadWriteNode()
-: Node("read_write_node")
+: Node("read_write_node_robot3")
 {
   RCLCPP_INFO(this->get_logger(), "Run read write node");
 
@@ -73,7 +73,7 @@ ReadWriteNode::ReadWriteNode()
 
   set_position_subscriber_ =
     this->create_subscription<SetPosition>(
-    "set_position",
+    "set_position_robot3",
     QOS_RKL10V,
     [this](const SetPosition::SharedPtr msg) -> void
     {
@@ -129,7 +129,7 @@ ReadWriteNode::ReadWriteNode()
       response->position = present_position;
     };
 
-  get_position_server_ = create_service<GetPosition>("get_position", get_present_position);
+  get_position_server_ = create_service<GetPosition>("get_position_robot3", get_present_position);
 }
 
 ReadWriteNode::~ReadWriteNode()
